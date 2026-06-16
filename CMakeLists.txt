@@ -2,10 +2,25 @@ cmake_minimum_required(VERSION 3.16)
 
 project(parallel_job_scheduler VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+add_library(scheduler_lib
+    src/JobRunner.cpp
+)
+
+target_include_directories(scheduler_lib
+    PUBLIC
+        include
+)
+
+target_compile_features(scheduler_lib
+    PUBLIC
+        cxx_std_20
+)
 
 add_executable(parallel_job_scheduler
-    main.cpp
+    app/main.cpp
+)
+
+target_link_libraries(parallel_job_scheduler
+    PRIVATE
+        scheduler_lib
 )

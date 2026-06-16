@@ -1,18 +1,11 @@
+#include "scheduler/JobRunner.hpp"
+
 #include <cstdlib>
 #include <iostream>
-#include <string>
 
-struct Job {
-    std::string name;
-    std::string command;
-};
+namespace scheduler {
 
-int main() {
-    const Job job{
-        "hello-job",
-        "echo Hello from the hardcoded job"
-    };
-
+int JobRunner::run(const Job& job) const {
     std::cout << "Running job: " << job.name << '\n';
     std::cout << "Command: " << job.command << '\n';
     std::cout << std::flush;
@@ -22,3 +15,5 @@ int main() {
     std::cout << "Job exited with code: " << exit_code << '\n';
     return exit_code;
 }
+
+} // namespace scheduler
