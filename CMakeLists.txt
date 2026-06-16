@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 
 project(parallel_job_scheduler VERSION 0.1.0 LANGUAGES CXX)
 
+enable_testing()
+
 add_library(scheduler_lib
+    src/JobPlanner.cpp
     src/JobRunner.cpp
 )
 
@@ -24,3 +27,14 @@ target_link_libraries(parallel_job_scheduler
     PRIVATE
         scheduler_lib
 )
+
+add_executable(scheduler_tests
+    tests/JobPlannerTests.cpp
+)
+
+target_link_libraries(scheduler_tests
+    PRIVATE
+        scheduler_lib
+)
+
+add_test(NAME scheduler_tests COMMAND scheduler_tests)

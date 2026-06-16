@@ -2,7 +2,7 @@
 
 A terminal-based C++ job scheduler project.
 
-The current version runs a hardcoded list of shell commands sequentially through a small `JobRunner`.
+The current version defines a hardcoded list of shell commands with dependencies, topologically sorts them, and runs them sequentially through a small `JobRunner`.
 
 ## Build
 
@@ -28,9 +28,19 @@ Running job: build
 Command: echo Building project artifacts
 Building project artifacts
 Job exited with code: 0
+Running job: test
+Command: echo Running tests
+Running tests
+Job exited with code: 0
 Running job: package
 Command: echo Packaging final output
 Packaging final output
 Job exited with code: 0
 All jobs completed successfully.
+```
+
+## Test
+
+```powershell
+C:\msys64\ucrt64\bin\ctest.exe --test-dir build --output-on-failure
 ```
