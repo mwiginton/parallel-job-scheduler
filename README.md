@@ -2,7 +2,7 @@
 
 A terminal-based C++ job scheduler project.
 
-The current version runs one hardcoded shell command through a small `JobRunner`.
+The current version runs a hardcoded list of shell commands sequentially through a small `JobRunner`.
 
 ## Build
 
@@ -20,8 +20,17 @@ C:\msys64\ucrt64\bin\cmake.exe --build build
 Expected output:
 
 ```text
-Running job: hello-job
-Command: echo Hello from the hardcoded job
-Hello from the hardcoded job
+Running job: prepare
+Command: echo Preparing job inputs
+Preparing job inputs
 Job exited with code: 0
+Running job: build
+Command: echo Building project artifacts
+Building project artifacts
+Job exited with code: 0
+Running job: package
+Command: echo Packaging final output
+Packaging final output
+Job exited with code: 0
+All jobs completed successfully.
 ```
