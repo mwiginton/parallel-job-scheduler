@@ -1,8 +1,14 @@
 #include "scheduler/JobConfigLoader.hpp"
 #include "scheduler/JobPlanner.hpp"
+#include "scheduler/ParallelJobExecutor.hpp"
+#include "scheduler/ThreadPool.hpp"
 
+#include <chrono>
+#include <condition_variable>
 #include <fstream>
+#include <future>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -142,6 +148,72 @@ void testRejectsInvalidJsonConfig() {
     throw std::runtime_error("Expected invalid JSON config to throw");
 }
 
+void testThreadPoolReturnsTaskResults() {
+    scheduler::ThreadPool thread_pool(2);
+
+    std::future<int> first = thread_pool.enqueue([]() {
+        return 20;
+    });
+    std::future<int> second = thread_pool.enqueue([]() {
+        return 22;
+    });
+
+    require(first.get() + second.get() == 42, "Expected thread pool task results");
+}
+
+void testThreadPoolRunsTasksConcurrently() {
+    scheduler::ThreadPool thread_pool(2);
+
+    std::mutex mutex;
+    std::condition_variable ready_changed;
+    std::condition_variable start_changed;
+    int ready_count = 0;
+    bool start = false;
+
+    auto blocking_task = [&]() {
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            ++ready_count;
+            ready_changed.notify_one();
+
+            start_changed.wait(lock, [&start]() {
+                return start;
+            });
+        }
+
+        return 1;
+    };
+
+    std::future<int> first = thread_pool.enqueue(blocking_task);
+    std::future<int> second = thread_pool.enqueue(blocking_task);
+
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        const bool both_tasks_started = ready_changed.wait_for(lock, std::chrono::seconds(2), [&ready_count]() {
+            return ready_count == 2;
+        });
+        require(both_tasks_started, "Expected two thread pool tasks to run concurrently");
+
+        start = true;
+    }
+
+    start_changed.notify_all();
+
+    require(first.get() == 1, "Expected first blocking task result");
+    require(second.get() == 1, "Expected second blocking task result");
+}
+
+void testParallelExecutorRunsDependencyGraph() {
+    const std::vector<scheduler::Job> jobs{
+        {"finish", "echo finish", {"left", "right"}},
+        {"left", "echo left", {}},
+        {"right", "echo right", {}}
+    };
+
+    const scheduler::ParallelJobExecutor executor(2);
+    require(executor.run(jobs) == 0, "Expected parallel executor to complete dependency graph");
+}
+
 } // namespace
 
 int main() {
@@ -152,6 +224,9 @@ int main() {
         testDetectsCycles();
         testLoadsJobsFromJsonFile();
         testRejectsInvalidJsonConfig();
+        testThreadPoolReturnsTaskResults();
+        testThreadPoolRunsTasksConcurrently();
+        testParallelExecutorRunsDependencyGraph();
     } catch (const std::exception& error) {
         std::cerr << "JobPlanner test failed: " << error.what() << '\n';
         return 1;

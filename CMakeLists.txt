@@ -6,8 +6,10 @@ enable_testing()
 
 add_library(scheduler_lib
     src/JobConfigLoader.cpp
+    src/ParallelJobExecutor.cpp
     src/JobPlanner.cpp
     src/JobRunner.cpp
+    src/ThreadPool.cpp
 )
 
 target_include_directories(scheduler_lib

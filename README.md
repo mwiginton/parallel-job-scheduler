@@ -2,7 +2,7 @@
 
 A terminal-based C++ job scheduler project.
 
-The current version reads shell commands and dependencies from a JSON file, topologically sorts the jobs, and runs them sequentially through a small `JobRunner`.
+The current version reads shell commands and dependencies from a JSON file, validates the dependency graph, and runs independent jobs in parallel through a small thread pool.
 
 ## Build
 
@@ -23,9 +23,16 @@ You can also pass a config path explicitly:
 .\build\parallel_job_scheduler.exe jobs.json
 ```
 
+The second argument sets the worker count:
+
+```powershell
+.\build\parallel_job_scheduler.exe jobs.json 2
+```
+
 Expected output:
 
 ```text
+Scheduling 5 job(s) with 2 worker(s).
 Running job: prepare
 Command: echo Preparing job inputs
 Preparing job inputs
@@ -34,9 +41,13 @@ Running job: build
 Command: echo Building project artifacts
 Building project artifacts
 Job exited with code: 0
+Running job: lint
+Command: powershell -NoProfile -Command "Start-Sleep -Seconds 1; Write-Output 'Running lint checks'"
 Running job: test
-Command: echo Running tests
+Command: powershell -NoProfile -Command "Start-Sleep -Seconds 1; Write-Output 'Running tests'"
 Running tests
+Running lint checks
+Job exited with code: 0
 Job exited with code: 0
 Running job: package
 Command: echo Packaging final output
@@ -44,6 +55,8 @@ Packaging final output
 Job exited with code: 0
 All jobs completed successfully.
 ```
+
+The exact order of lines from concurrently running jobs may vary.
 
 ## Config Format
 
@@ -53,11 +66,16 @@ All jobs completed successfully.
     {
       "name": "package",
       "command": "echo Packaging final output",
-      "dependencies": ["build", "test"]
+      "dependencies": ["test", "lint"]
+    },
+    {
+      "name": "lint",
+      "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running lint checks'\"",
+      "dependencies": ["build"]
     },
     {
       "name": "test",
-      "command": "echo Running tests",
+      "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running tests'\"",
       "dependencies": ["build"]
     },
     {
@@ -74,6 +92,8 @@ All jobs completed successfully.
 ```
 
 The `dependencies` field is optional. If present, every dependency must match another job's `name`.
+
+In the sample config, `test` and `lint` both depend on `build`, but neither depends on the other. Once `build` finishes, both become ready and can run at the same time.
 
 ## Test
 

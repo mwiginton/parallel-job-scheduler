@@ -3,11 +3,16 @@
     {
       "name": "package",
       "command": "echo Packaging final output",
-      "dependencies": ["build", "test"]
+      "dependencies": ["test", "lint"]
+    },
+    {
+      "name": "lint",
+      "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running lint checks'\"",
+      "dependencies": ["build"]
     },
     {
       "name": "test",
-      "command": "echo Running tests",
+      "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running tests'\"",
       "dependencies": ["build"]
     },
     {
