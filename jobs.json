@@ -8,12 +8,16 @@
     {
       "name": "lint",
       "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running lint checks'\"",
-      "dependencies": ["build"]
+      "dependencies": ["build"],
+      "max_retries": 2,
+      "retry_backoff_ms": 250
     },
     {
       "name": "test",
       "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running tests'\"",
-      "dependencies": ["build"]
+      "dependencies": ["build"],
+      "max_retries": 2,
+      "retry_backoff_ms": 250
     },
     {
       "name": "build",

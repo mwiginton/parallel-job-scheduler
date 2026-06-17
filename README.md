@@ -42,8 +42,10 @@ Command: echo Building project artifacts
 Building project artifacts
 Job exited with code: 0
 Running job: lint
+Attempt: 1 of 3
 Command: powershell -NoProfile -Command "Start-Sleep -Seconds 1; Write-Output 'Running lint checks'"
 Running job: test
+Attempt: 1 of 3
 Command: powershell -NoProfile -Command "Start-Sleep -Seconds 1; Write-Output 'Running tests'"
 Running tests
 Running lint checks
@@ -71,12 +73,16 @@ The exact order of lines from concurrently running jobs may vary.
     {
       "name": "lint",
       "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running lint checks'\"",
-      "dependencies": ["build"]
+      "dependencies": ["build"],
+      "max_retries": 2,
+      "retry_backoff_ms": 250
     },
     {
       "name": "test",
       "command": "powershell -NoProfile -Command \"Start-Sleep -Seconds 1; Write-Output 'Running tests'\"",
-      "dependencies": ["build"]
+      "dependencies": ["build"],
+      "max_retries": 2,
+      "retry_backoff_ms": 250
     },
     {
       "name": "build",
@@ -94,6 +100,8 @@ The exact order of lines from concurrently running jobs may vary.
 The `dependencies` field is optional. If present, every dependency must match another job's `name`.
 
 In the sample config, `test` and `lint` both depend on `build`, but neither depends on the other. Once `build` finishes, both become ready and can run at the same time.
+
+The `max_retries` and `retry_backoff_ms` fields are optional. `max_retries` is the number of retry attempts after the first failure, so `2` allows up to three total attempts. Backoff grows per retry: with `retry_backoff_ms` set to `250`, the first retry waits 250 ms and the second waits 500 ms.
 
 ## Test
 

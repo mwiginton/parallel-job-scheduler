@@ -1,10 +1,12 @@
 #include "scheduler/JobConfigLoader.hpp"
 #include "scheduler/JobPlanner.hpp"
+#include "scheduler/JobRunner.hpp"
 #include "scheduler/ParallelJobExecutor.hpp"
 #include "scheduler/ThreadPool.hpp"
 
 #include <chrono>
 #include <condition_variable>
+#include <cstdio>
 #include <fstream>
 #include <future>
 #include <iostream>
@@ -106,7 +108,9 @@ void testLoadsJobsFromJsonFile() {
             {
                 "name": "build",
                 "command": "echo Building",
-                "dependencies": ["prepare"]
+                "dependencies": ["prepare"],
+                "max_retries": 2,
+                "retry_backoff_ms": 50
             },
             {
                 "name": "prepare",
@@ -123,7 +127,11 @@ void testLoadsJobsFromJsonFile() {
     require(jobs[0].command == "echo Building", "Expected first job command from JSON config");
     require(jobs[0].dependencies.size() == 1, "Expected first job dependency from JSON config");
     require(jobs[0].dependencies[0] == "prepare", "Expected dependency name from JSON config");
+    require(jobs[0].max_retries == 2, "Expected max retries from JSON config");
+    require(jobs[0].retry_backoff == std::chrono::milliseconds(50), "Expected retry backoff from JSON config");
     require(jobs[1].dependencies.empty(), "Expected missing dependencies field to mean no dependencies");
+    require(jobs[1].max_retries == 0, "Expected missing max retries to default to zero");
+    require(jobs[1].retry_backoff == std::chrono::milliseconds(0), "Expected missing backoff to default to zero");
 }
 
 void testRejectsInvalidJsonConfig() {
@@ -214,6 +222,37 @@ void testParallelExecutorRunsDependencyGraph() {
     require(executor.run(jobs) == 0, "Expected parallel executor to complete dependency graph");
 }
 
+void testJobRunnerRetriesFailedJob() {
+    const std::string marker_path = "retry_marker_test.txt";
+    (void)std::remove(marker_path.c_str());
+
+    const scheduler::Job job{
+        "flaky",
+        "powershell -NoProfile -Command \"if (Test-Path 'retry_marker_test.txt') { exit 0 } else { New-Item -ItemType File -Path 'retry_marker_test.txt' | Out-Null; exit 1 }\"",
+        {},
+        1,
+        std::chrono::milliseconds(10)
+    };
+
+    const scheduler::JobRunner runner;
+    require(runner.run(job) == 0, "Expected flaky job to succeed after one retry");
+
+    (void)std::remove(marker_path.c_str());
+}
+
+void testJobRunnerReportsFailureAfterRetries() {
+    const scheduler::Job job{
+        "always-fails",
+        "powershell -NoProfile -Command \"exit 1\"",
+        {},
+        1,
+        std::chrono::milliseconds(1)
+    };
+
+    const scheduler::JobRunner runner;
+    require(runner.run(job) != 0, "Expected failing job to report failure after retries");
+}
+
 } // namespace
 
 int main() {
@@ -227,6 +266,8 @@ int main() {
         testThreadPoolReturnsTaskResults();
         testThreadPoolRunsTasksConcurrently();
         testParallelExecutorRunsDependencyGraph();
+        testJobRunnerRetriesFailedJob();
+        testJobRunnerReportsFailureAfterRetries();
     } catch (const std::exception& error) {
         std::cerr << "JobPlanner test failed: " << error.what() << '\n';
         return 1;

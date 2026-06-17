@@ -1,6 +1,7 @@
 #include "scheduler/JobConfigLoader.hpp"
 
 #include <cctype>
+#include <chrono>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
@@ -17,7 +18,7 @@ struct JsonValue {
     using Array = std::vector<JsonValue>;
     using Object = std::unordered_map<std::string, JsonValue>;
 
-    std::variant<std::string, Array, Object> value;
+    std::variant<std::string, std::size_t, Array, Object> value;
 };
 
 class JsonParser {
@@ -53,7 +54,11 @@ private:
             return JsonValue{parseString()};
         }
 
-        throw error("Expected an object, array, or string");
+        if (std::isdigit(static_cast<unsigned char>(peek())) != 0) {
+            return JsonValue{parseNumber()};
+        }
+
+        throw error("Expected an object, array, string, or number");
     }
 
     JsonValue::Object parseObject() {
@@ -158,6 +163,17 @@ private:
         throw error("Unterminated string");
     }
 
+    std::size_t parseNumber() {
+        std::size_t result = 0;
+
+        while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek())) != 0) {
+            const std::size_t digit = static_cast<std::size_t>(advance() - '0');
+            result = (result * 10) + digit;
+        }
+
+        return result;
+    }
+
     void skipWhitespace() {
         while (!isAtEnd() && std::isspace(static_cast<unsigned char>(peek())) != 0) {
             ++position_;
@@ -225,6 +241,14 @@ const std::string& asString(const JsonValue& value, const std::string& context) 
     throw std::runtime_error(context + " must be a string");
 }
 
+std::size_t asNumber(const JsonValue& value, const std::string& context) {
+    if (const auto* number = std::get_if<std::size_t>(&value.value)) {
+        return *number;
+    }
+
+    throw std::runtime_error(context + " must be a non-negative integer");
+}
+
 const JsonValue& requireField(
     const JsonValue::Object& object,
     const std::string& field_name,
@@ -256,6 +280,20 @@ std::vector<std::string> readDependencies(const JsonValue::Object& job_object, c
     return dependencies;
 }
 
+std::size_t readOptionalNumber(
+    const JsonValue::Object& object,
+    const std::string& field_name,
+    const std::string& context,
+    std::size_t default_value
+) {
+    const auto field = object.find(field_name);
+    if (field == object.end()) {
+        return default_value;
+    }
+
+    return asNumber(field->second, context + "." + field_name);
+}
+
 std::vector<Job> readJobs(const JsonValue& root) {
     const JsonValue::Object& root_object = asObject(root, "Root JSON value");
     const JsonValue::Array& job_values = asArray(requireField(root_object, "jobs", "Root JSON value"), "jobs");
@@ -270,7 +308,9 @@ std::vector<Job> readJobs(const JsonValue& root) {
         Job job{
             asString(requireField(job_object, "name", context), context + ".name"),
             asString(requireField(job_object, "command", context), context + ".command"),
-            readDependencies(job_object, context)
+            readDependencies(job_object, context),
+            readOptionalNumber(job_object, "max_retries", context, 0),
+            std::chrono::milliseconds(readOptionalNumber(job_object, "retry_backoff_ms", context, 0))
         };
 
         if (job.name.empty()) {
