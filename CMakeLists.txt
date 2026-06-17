@@ -5,6 +5,7 @@ project(parallel_job_scheduler VERSION 0.1.0 LANGUAGES CXX)
 enable_testing()
 
 add_library(scheduler_lib
+    src/JobConfigLoader.cpp
     src/JobPlanner.cpp
     src/JobRunner.cpp
 )

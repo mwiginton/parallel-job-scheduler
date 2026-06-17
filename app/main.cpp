@@ -1,39 +1,22 @@
+#include "scheduler/JobConfigLoader.hpp"
 #include "scheduler/Job.hpp"
 #include "scheduler/JobPlanner.hpp"
 #include "scheduler/JobRunner.hpp"
 
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
-int main() {
-    const std::vector<scheduler::Job> jobs{
-        {
-            "package",
-            "echo Packaging final output",
-            {"build", "test"}
-        },
-        {
-            "test",
-            "echo Running tests",
-            {"build"}
-        },
-        {
-            "build",
-            "echo Building project artifacts",
-            {"prepare"}
-        },
-        {
-            "prepare",
-            "echo Preparing job inputs",
-            {}
-        }
-    };
+int main(int argc, char* argv[]) {
+    const std::string config_path = argc > 1 ? argv[1] : "jobs.json";
 
+    scheduler::JobConfigLoader config_loader;
     scheduler::JobPlanner planner;
     const scheduler::JobRunner runner;
 
     try {
+        const std::vector<scheduler::Job> jobs = config_loader.loadJobsFromFile(config_path);
         const std::vector<const scheduler::Job*> ordered_jobs = planner.buildExecutionOrder(jobs);
 
         for (const scheduler::Job* job : ordered_jobs) {
@@ -44,7 +27,7 @@ int main() {
             }
         }
     } catch (const std::exception& error) {
-        std::cerr << "Failed to plan jobs: " << error.what() << '\n';
+        std::cerr << "Failed to run jobs: " << error.what() << '\n';
         return 1;
     }
 

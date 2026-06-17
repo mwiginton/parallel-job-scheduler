@@ -2,7 +2,7 @@
 
 A terminal-based C++ job scheduler project.
 
-The current version defines a hardcoded list of shell commands with dependencies, topologically sorts them, and runs them sequentially through a small `JobRunner`.
+The current version reads shell commands and dependencies from a JSON file, topologically sorts the jobs, and runs them sequentially through a small `JobRunner`.
 
 ## Build
 
@@ -15,6 +15,12 @@ C:\msys64\ucrt64\bin\cmake.exe --build build
 
 ```powershell
 .\build\parallel_job_scheduler.exe
+```
+
+You can also pass a config path explicitly:
+
+```powershell
+.\build\parallel_job_scheduler.exe jobs.json
 ```
 
 Expected output:
@@ -38,6 +44,36 @@ Packaging final output
 Job exited with code: 0
 All jobs completed successfully.
 ```
+
+## Config Format
+
+```json
+{
+  "jobs": [
+    {
+      "name": "package",
+      "command": "echo Packaging final output",
+      "dependencies": ["build", "test"]
+    },
+    {
+      "name": "test",
+      "command": "echo Running tests",
+      "dependencies": ["build"]
+    },
+    {
+      "name": "build",
+      "command": "echo Building project artifacts",
+      "dependencies": ["prepare"]
+    },
+    {
+      "name": "prepare",
+      "command": "echo Preparing job inputs"
+    }
+  ]
+}
+```
+
+The `dependencies` field is optional. If present, every dependency must match another job's `name`.
 
 ## Test
 

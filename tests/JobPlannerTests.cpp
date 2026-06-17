@@ -1,5 +1,7 @@
+#include "scheduler/JobConfigLoader.hpp"
 #include "scheduler/JobPlanner.hpp"
 
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -82,6 +84,64 @@ void testDetectsCycles() {
     throw std::runtime_error("Expected dependency cycle to throw");
 }
 
+void writeFile(const std::string& path, const std::string& content) {
+    std::ofstream file(path);
+    if (!file) {
+        throw std::runtime_error("Could not write test file: " + path);
+    }
+
+    file << content;
+}
+
+void testLoadsJobsFromJsonFile() {
+    const std::string path = "valid_jobs_config_test.json";
+    writeFile(path, R"({
+        "jobs": [
+            {
+                "name": "build",
+                "command": "echo Building",
+                "dependencies": ["prepare"]
+            },
+            {
+                "name": "prepare",
+                "command": "echo Preparing"
+            }
+        ]
+    })");
+
+    const scheduler::JobConfigLoader loader;
+    const std::vector<scheduler::Job> jobs = loader.loadJobsFromFile(path);
+
+    require(jobs.size() == 2, "Expected two jobs from JSON config");
+    require(jobs[0].name == "build", "Expected first job name from JSON config");
+    require(jobs[0].command == "echo Building", "Expected first job command from JSON config");
+    require(jobs[0].dependencies.size() == 1, "Expected first job dependency from JSON config");
+    require(jobs[0].dependencies[0] == "prepare", "Expected dependency name from JSON config");
+    require(jobs[1].dependencies.empty(), "Expected missing dependencies field to mean no dependencies");
+}
+
+void testRejectsInvalidJsonConfig() {
+    const std::string path = "invalid_jobs_config_test.json";
+    writeFile(path, R"({
+        "jobs": [
+            {
+                "name": "build",
+                "dependencies": []
+            }
+        ]
+    })");
+
+    const scheduler::JobConfigLoader loader;
+
+    try {
+        (void)loader.loadJobsFromFile(path);
+    } catch (const std::runtime_error&) {
+        return;
+    }
+
+    throw std::runtime_error("Expected invalid JSON config to throw");
+}
+
 } // namespace
 
 int main() {
@@ -90,6 +150,8 @@ int main() {
         testRejectsUnknownDependency();
         testRejectsDuplicateJobNames();
         testDetectsCycles();
+        testLoadsJobsFromJsonFile();
+        testRejectsInvalidJsonConfig();
     } catch (const std::exception& error) {
         std::cerr << "JobPlanner test failed: " << error.what() << '\n';
         return 1;

@@ -1,0 +1,23 @@
+{
+  "jobs": [
+    {
+      "name": "package",
+      "command": "echo Packaging final output",
+      "dependencies": ["build", "test"]
+    },
+    {
+      "name": "test",
+      "command": "echo Running tests",
+      "dependencies": ["build"]
+    },
+    {
+      "name": "build",
+      "command": "echo Building project artifacts",
+      "dependencies": ["prepare"]
+    },
+    {
+      "name": "prepare",
+      "command": "echo Preparing job inputs"
+    }
+  ]
+}
